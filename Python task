@@ -1,9 +1,79 @@
-Test Python 
-Project Shark test task auto
+import time
+import os
+import psutil
+from datetime import datetime
+
+# ==========================================
+# CONFIGURACIÓN
+# ==========================================
+# En Windows usa "C:\\", en Linux/Mac usa "/"
+RUTA_DISCO = "C:\\" 
+
+# Límite en GB para la alerta
+LIMITE_GB_ALERTA = 150
+
+# Intervalo ajustado a 1 HORA (3600 segundos)
+INTERVALO_SEGUNDOS = 3600 
+# ==========================================
 
 
+def enviar_notificacion(titulo, mensaje):
+    """Muestra una notificación en el sistema según el SO."""
+    if os.name == 'nt':
+        try:
+            from win10toast import ToastNotifier
+            toaster = ToastNotifier()
+            toaster.show_toast(titulo, mensaje, duration=10, threaded=True)
+        except ImportError:
+            print("\a") 
+            print(f"🔔 [{titulo}] {mensaje}")
+    else:
+        print(f"🔔 [{titulo}] {mensaje}")
 
 
+def obtener_espacio_libre_gb(ruta):
+    """Devuelve el espacio libre en GB."""
+    uso = psutil.disk_usage(ruta)
+    espacio_libre_gb = uso.free / (1024 ** 3)
+    return round(espacio_libre_gb, 2)
 
 
-END
+def ejecutar_task_runner():
+    print("🚀 Task Runner Py - Monitor de Almacenamiento iniciado...")
+    print(f"🔍 Monitoreando: {RUTA_DISCO} | Umbral: <= {LIMITE_GB_ALERTA} GB | Frecuencia: Cada 1 hora\n")
+
+    alerta_enviada = False
+
+    while True:
+        try:
+            espacio_libre = obtener_espacio_libre_gb(RUTA_DISCO)
+            hora_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+            print(f"[{hora_actual}] Espacio libre actual: {espacio_libre} GB")
+
+            # Comprobar si el espacio es menor o igual al límite
+            if espacio_libre <= LIMITE_GB_ALERTA:
+                if not alerta_enviada:
+                    titulo = "⚠️ ALERTA DE ESPACIO EN DISCO"
+                    mensaje = f"¡Atención! Quedan solo {espacio_libre} GB libres en {RUTA_DISCO}."
+                    
+                    enviar_notificacion(titulo, mensaje)
+                    alerta_enviada = True  # Evita repetir la alerta si no ha cambiado la situación
+            else:
+                if alerta_enviada:
+                    print("✅ El espacio volvió a estar por encima del límite.")
+                    alerta_enviada = False
+
+            print(f"⏳ Esperando 1 hora para la siguiente revisión...\n")
+            time.sleep(INTERVALO_SEGUNDOS)
+
+        except KeyboardInterrupt:
+            print("\n🛑 Monitor detenido por el usuario. ¡Hasta luego!")
+            break
+        except Exception as e:
+            print(f"❌ Error inesperado: {e}")
+            time.sleep(10)
+
+
+if __name__ == "__main__":
+    ejecutar_task_runner()
